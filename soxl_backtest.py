@@ -57,7 +57,7 @@ def load(path, url):
     return rows
 
 
-def build_series():
+def build_series(start=None):
     early = load(*SOURCES["early"])
     late = load(*SOURCES["late"])
     # validate the splice: split-adjusted closes must agree on the overlap
@@ -71,6 +71,18 @@ def build_series():
     for d, v in late.items():
         if d > SPLICE:
             series[d] = v
+    # keep one extra session before `start` so the first in-window day has a
+    # valid close-to-close return; that pre-start day is never an entry itself.
+    if start:
+        dates_all = sorted(series)
+        keep = [d for d in dates_all if d >= start]
+        if keep:
+            i0 = dates_all.index(keep[0])
+            if i0 > 0:
+                keep = [dates_all[i0 - 1]] + keep
+        series = {d: series[d] for d in keep}
+        # the warm-up day naturally cannot be an entry: the backtest loop starts
+        # with prev_close=None, so no signal fires on the first session.
     dates = sorted(series)
     return dates, series, common, maxdiff
 
@@ -124,12 +136,16 @@ def backtest(dates, series):
 
 
 def main():
-    dates, series, common, maxdiff = build_series()
+    start_arg = sys.argv[1] if len(sys.argv) > 1 else None
+    dates, series, common, maxdiff = build_series(start_arg)
     cap_closed, cap_mtm, signals, trades, open_trade = backtest(dates, series)
 
-    start, end = dates[0], dates[-1]
+    end = dates[-1]
+    # first in-window trading day (skip the warm-up session if one was added)
+    first = next((d for d in dates if not start_arg or d >= start_arg), dates[0])
+    start = start_arg or first
     # buy & hold over the same window (split-adjusted close, dividends excluded)
-    bh = series[end][1] / series[start][1] - 1.0
+    bh = series[end][1] / series[first][1] - 1.0
 
     import statistics
     holds = [t[5] for t in trades]
