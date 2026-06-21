@@ -107,6 +107,17 @@ python3 soxl_backtest.py 2019-06-21 trail       # 최근 7년, 10% 트레일링 
 - `data/` — 접합에 쓴 원본 CSV 2개
 - `trades.csv` — 18개 트레이드 로그(실행 시 생성)
 
+## 웹에서 직접 백테스트 (index.html)
+
+기간·매수 낙폭·매도 방식(고정익절 / 트레일링 스탑 / 익절+손절)을 직접 골라 돌릴 수
+있는 단일 HTML 페이지입니다(데이터 내장, 외부 의존성 0, 자산곡선 차트 포함).
+
+- **바로 열기(설정 불필요):**
+  `https://htmlpreview.github.io/?https://raw.githubusercontent.com/seogisu/taskplan/claude/soxl-backtest-strategy-dym4w7/index.html`
+- **GitHub Pages(깔끔한 주소):** 저장소 Settings → Pages → 이 브랜치 `/ (root)` 선택 →
+  `https://seogisu.github.io/taskplan/`
+- 로컬: `index.html` 더블클릭
+
 ## 가정·한계
 - 신호일 종가에 정확히 체결, 익절은 이후 고가가 목표가를 터치하면 목표가에 체결(슬리피지 0).
 - 동시에 1포지션만, 전액 재투자(복리). 다중·분할 진입은 미적용(변형 시 결과 크게 달라짐).
