@@ -87,10 +87,14 @@ def build_series(start=None):
     return dates, series, common, maxdiff
 
 
-def backtest(dates, series):
+def backtest(dates, series, mode="tp"):
+    """mode='tp'    : fixed +10% take-profit limit (intraday high touch).
+       mode='trail' : 10% trailing stop on a CLOSING basis. The reference ratchets
+                      up to each new closing high after entry; sell at the close of
+                      the first day whose close falls >=10% below that peak close."""
     capital = 1.0
     holding = False
-    entry = target = 0.0
+    entry = target = peak = 0.0
     entry_date = None
     signals = 0
     trades = []  # (entry_date, entry_px, exit_date, exit_px, ret, hold_days)
@@ -100,12 +104,21 @@ def backtest(dates, series):
         high, close = series[d]
 
         # check exit first (a position opened on a prior day)
-        if holding and high >= target:
-            ret = TAKE  # filled at the limit = entry*1.10
-            hd = i - entry_idx
-            capital *= (1 + ret)
-            trades.append((entry_date, entry, d, target, ret, hd, "tp"))
-            holding = False
+        if holding:
+            if mode == "tp" and high >= target:
+                ret = TAKE  # filled at the limit = entry*1.10
+                capital *= (1 + ret)
+                trades.append((entry_date, entry, d, target, ret, i - entry_idx, "tp"))
+                holding = False
+            elif mode == "trail":
+                if close >= peak:          # new closing high -> raise the reference
+                    peak = close
+                elif close <= peak * (1 - TAKE):   # fell 10% from peak close -> sell
+                    ret = close / entry - 1.0
+                    capital *= (1 + ret)
+                    tag = "win" if ret >= 0 else "loss"
+                    trades.append((entry_date, entry, d, close, ret, i - entry_idx, tag))
+                    holding = False
 
         # entry signal (only if flat) — evaluated on close-to-close return
         if prev_close is not None and not holding:
@@ -115,6 +128,7 @@ def backtest(dates, series):
                 holding = True
                 entry = close
                 target = entry * (1 + TAKE)
+                peak = close               # trailing reference starts at entry close
                 entry_date = d
                 entry_idx = i
 
@@ -137,8 +151,9 @@ def backtest(dates, series):
 
 def main():
     start_arg = sys.argv[1] if len(sys.argv) > 1 else None
+    mode = sys.argv[2] if len(sys.argv) > 2 else "tp"
     dates, series, common, maxdiff = build_series(start_arg)
-    cap_closed, cap_mtm, signals, trades, open_trade = backtest(dates, series)
+    cap_closed, cap_mtm, signals, trades, open_trade = backtest(dates, series, mode)
 
     end = dates[-1]
     # first in-window trading day (skip the warm-up session if one was added)
@@ -150,16 +165,26 @@ def main():
     import statistics
     holds = [t[5] for t in trades]
 
+    exit_desc = (f"+{TAKE:.0%} limit (intraday high touches entry*{1+TAKE:.2f})"
+                 if mode == "tp" else
+                 f"{TAKE:.0%} trailing stop on CLOSE (peak close ratchets up, "
+                 f"sell when close <= peak*{1-TAKE:.2f})")
     print("=" * 70)
-    print("SOXL  |  buy on -15% day (close), take profit +10%  |  fees & tax excluded")
+    print(f"SOXL  |  buy on -15% day (close)  |  exit: {mode}  |  fees & tax excluded")
     print("=" * 70)
     print(f"Data window      : {start}  ->  {end}  ({len(dates)} trading days)")
     print(f"Splice overlap   : {len(common)} common days, max split-adj close diff = {maxdiff:.4%}")
     print(f"Entry rule       : daily close-to-close return <= {DROP:.0%}")
-    print(f"Exit rule        : +{TAKE:.0%} limit (intraday high touches entry*{1+TAKE:.2f})")
+    print(f"Exit rule        : {exit_desc}")
     print("-" * 70)
     print(f"-15% down days (signals taken) : {signals}")
-    print(f"Completed +10% trades          : {len(trades)}")
+    print(f"Completed trades               : {len(trades)}")
+    if trades:
+        wins = [t for t in trades if t[4] >= 0]
+        rets = [t[4] for t in trades]
+        print(f"  win rate  : {len(wins)}/{len(trades)} ({len(wins)/len(trades):.0%})   "
+              f"avg trade {statistics.mean(rets):+.2%}   "
+              f"best {max(rets):+.1%} / worst {min(rets):+.1%}")
     if holds:
         print(f"Hold period (trading days)     : min {min(holds)}, "
               f"median {int(statistics.median(holds))}, max {max(holds)}, "
