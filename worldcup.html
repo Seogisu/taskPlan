@@ -130,11 +130,19 @@
     <summary>실시간 데이터 출처 설정 / 디버그</summary>
     <div class="card small" style="margin-top:8px">
       <p class="muted" style="margin:.2em 0">
-        기본 출처는 <b>TheSportsDB</b>(무료·키 불필요·CORS 허용)입니다. 페이지가 열릴 때 브라우저가 직접
-        2026 월드컵 조별 순위를 불러와 <b>각 조 3위</b>를 자동 추출합니다. 실패하면 아래 스냅샷(수기 입력값)으로 되돌아갑니다.
+        페이지가 열리면 브라우저가 직접 <b>위키피디아 API</b>(<code>origin=*</code>로 CORS 공식 허용)에서
+        <b>2026 월드컵 3위 팀 순위표</b>를 받아 반영합니다. 실패하면 TheSportsDB → 내장 스냅샷 순으로 자동 폴백합니다.
+        <br><b>※ FIFA 홈페이지 HTML 직접 파싱은 불가</b>합니다 — FIFA.com이 CORS 헤더를 주지 않아 브라우저가
+        타 출처에서의 읽기를 차단합니다(보안 정책). 그래서 CORS를 허용하는 위키피디아를 1순위로 씁니다.
       </p>
       <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;max-width:520px">
-        <label>API Key</label><input type="text" id="cfgKey" value="3">
+        <label>데이터 소스</label>
+        <select id="cfgSource">
+          <option value="auto" selected>자동 (위키피디아 → TheSportsDB)</option>
+          <option value="wikipedia">위키피디아만</option>
+          <option value="sportsdb">TheSportsDB만</option>
+        </select>
+        <label>API Key <span class="hint">(SportsDB)</span></label><input type="text" id="cfgKey" value="3">
         <label>League ID <span class="hint">(비우면 이름으로 자동 탐색)</span></label><input type="text" id="cfgLeague" value="">
         <label>League 이름 검색어</label><input type="text" id="cfgName" value="World Cup">
         <label>Season</label><input type="text" id="cfgSeason" value="2026">
@@ -395,7 +403,8 @@ document.getElementById('bestBtn').onclick=()=>{
   render();
 };
 
-//================= 실시간 데이터 (TheSportsDB, 브라우저에서 직접 호출) =================
+//================= 실시간 데이터 (브라우저에서 직접 호출) =================
+// 1순위: 위키피디아 API(origin=* → CORS 허용) / 2순위: TheSportsDB / 최종: 내장 스냅샷
 function setLive(state, text){
   const bar=document.getElementById('liveBar');
   bar.className='livebar '+state;
@@ -403,6 +412,10 @@ function setLive(state, text){
 }
 function nowStr(){ try{ return new Date().toLocaleString('ko-KR'); }catch(e){ return ''; } }
 function num(x){ const n=parseInt(x,10); return isNaN(n)?0:n; }
+function val(id){ const e=document.getElementById(id); return e?e.value:''; }
+// "+1","−2","[a] 3" 등 → 정수
+function signed(s){ const t=String(s==null?'':s).replace(/[−–—]/g,'-').replace(/\+/g,'').replace(/[^0-9-]/g,''); const n=parseInt(t,10); return isNaN(n)?0:n; }
+function cleanTxt(s){ return String(s||'').replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim(); }
 
 // 순위표(table) 배열 → 각 조 3위 팀 목록
 function extractThirds(table, dbg){
@@ -450,52 +463,117 @@ function applyLive(thirds){
   render();
 }
 
-async function fetchLive(){
-  const key=(document.getElementById('cfgKey').value||'3').trim();
-  let league=(document.getElementById('cfgLeague').value||'').trim();
-  const name=(document.getElementById('cfgName').value||'World Cup').trim();
-  const season=(document.getElementById('cfgSeason').value||'2026').trim();
+// ── 소스 1: 위키피디아 "3위 팀 순위표" 템플릿 (CORS: origin=*) ──
+function colMap(ths){
+  const m={};
+  ths.forEach((h,i)=>{
+    const t=h.replace(/\s/g,'').toLowerCase();
+    if((/grp|group/.test(t)) && m.grp==null) m.grp=i;
+    else if((/team|nation|country/.test(t)) && m.team==null) m.team=i;
+    else if((t==='pld'||t==='p'||/played|matches/.test(t)) && m.pld==null) m.pld=i;
+    else if(t==='gf' && m.gf==null) m.gf=i;
+    else if(t==='gd' && m.gd==null) m.gd=i;
+    else if((t==='pts'||/points/.test(t)) && m.pts==null) m.pts=i;
+  });
+  return m;
+}
+async function fetchWiki(dbg){
+  const page='Template:2026 FIFA World Cup third-place table';
+  const url=`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(page)}`
+          +`&prop=text&format=json&formatversion=2&origin=*`;
+  const r=await fetch(url);
+  if(!r.ok) throw new Error('Wikipedia HTTP '+r.status);
+  const j=await r.json();
+  const html=(j.parse && (typeof j.parse.text==='string' ? j.parse.text
+              : (j.parse.text && j.parse.text['*']))) || '';
+  if(!html) throw new Error('표 응답 없음');
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const tables=[...doc.querySelectorAll('table')];
+  dbg.push(`위키 표 ${tables.length}개`);
+  for(const t of tables){
+    const trs=[...t.querySelectorAll('tr')];
+    let hi=-1, map=null;
+    for(let i=0;i<trs.length;i++){
+      const ths=[...trs[i].querySelectorAll('th')].map(e=>cleanTxt(e.textContent));
+      if(!ths.length) continue;
+      const m=colMap(ths);
+      if(m.pts!=null && (m.grp!=null || m.team!=null)){ hi=i; map=m; break; }
+    }
+    if(hi<0) continue;
+    const thirds=[];
+    for(let i=hi+1;i<trs.length;i++){
+      const tds=[...trs[i].querySelectorAll('td,th')];
+      if(tds.length<3) continue;
+      const cell=k=> (map[k]!=null && tds[map[k]]) ? cleanTxt(tds[map[k]].textContent) : '';
+      const team=cell('team'), grpRaw=cell('grp');
+      if(!team && !grpRaw) continue;
+      const grp=((grpRaw.match(/[A-L]/i)||[''])[0]||'').toUpperCase();
+      const pld=map.pld!=null?signed(cell('pld')):3;
+      thirds.push({ group:grp, team:team||grp, p:signed(cell('pts')),
+        gd: map.gd!=null?signed(cell('gd')):0, gf: map.gf!=null?signed(cell('gf')):0,
+        confirmed: pld>=3, locked:false,
+        korea:/korea/i.test(team)||/대한민국/.test(team) });
+    }
+    if(thirds.length){ dbg.push(`위키 3위표 ${thirds.length}행 파싱`); return thirds; }
+  }
+  throw new Error('3위 순위표를 찾지 못함');
+}
+
+// ── 소스 2: TheSportsDB ──
+async function fetchSportsDB(dbg){
+  const key=(val('cfgKey')||'3').trim();
+  let league=(val('cfgLeague')||'').trim();
+  const name=(val('cfgName')||'World Cup').trim();
+  const season=(val('cfgSeason')||'2026').trim();
   const base=`https://www.thesportsdb.com/api/v1/json/${encodeURIComponent(key)}`;
+  if(!league){
+    const r=await fetch(`${base}/search_all_leagues.php?c=World&s=Soccer`);
+    if(!r.ok) throw new Error('리그목록 HTTP '+r.status);
+    const j=await r.json(); const list=j.countries||j.leagues||[];
+    dbg.push(`SportsDB 리그 ${list.length}개`);
+    const re=new RegExp(name,'i');
+    const cand=list.filter(l=>re.test(l.strLeague||'')&&!/women|u-?\d|futsal|beach|club|qual/i.test(l.strLeague||''));
+    const pick=cand.find(l=>/^fifa world cup$/i.test((l.strLeague||'').trim()))||cand[0];
+    if(!pick) throw new Error('WC 리그 못 찾음'); league=pick.idLeague;
+    dbg.push(`리그 ${pick.strLeague} (id ${league})`);
+  } else dbg.push(`리그 고정 id ${league}`);
+  const tr=await fetch(`${base}/lookuptable.php?l=${encodeURIComponent(league)}&s=${encodeURIComponent(season)}`);
+  if(!tr.ok) throw new Error('순위표 HTTP '+tr.status);
+  const tj=await tr.json(); const table=tj.table||tj.standings||[];
+  dbg.push(`SportsDB 행 ${table.length}개`);
+  if(!table.length) throw new Error('순위 데이터 비어 있음');
+  return extractThirds(table, dbg);
+}
+
+// ── 오케스트레이터: 소스 순차 시도 ──
+async function fetchLive(){
+  const src=val('cfgSource')||'auto';
   const dbg=[]; const dbgEl=document.getElementById('liveDebug');
   setLive('loading','실시간 데이터 불러오는 중…');
-  try{
-    if(!league){
-      const r=await fetch(`${base}/search_all_leagues.php?c=World&s=Soccer`);
-      if(!r.ok) throw new Error('리그 목록 HTTP '+r.status);
-      const j=await r.json();
-      const list=j.countries||j.leagues||[];
-      dbg.push(`리그 후보 ${list.length}개`);
-      const re=new RegExp(name,'i');
-      const cand=list.filter(l=>re.test(l.strLeague||'') && !/women|u-?\d|futsal|beach|club|qual/i.test(l.strLeague||''));
-      const pick=cand.find(l=>/^fifa world cup$/i.test((l.strLeague||'').trim())) || cand[0];
-      if(!pick) throw new Error(`"${name}" 리그를 찾지 못함`);
-      league=pick.idLeague;
-      dbg.push(`리그 선택: ${pick.strLeague} (id ${league})`);
-    } else dbg.push(`리그 고정 id ${league}`);
-
-    const tr=await fetch(`${base}/lookuptable.php?l=${encodeURIComponent(league)}&s=${encodeURIComponent(season)}`);
-    if(!tr.ok) throw new Error('순위표 HTTP '+tr.status);
-    const tj=await tr.json();
-    const table=tj.table||tj.standings||[];
-    dbg.push(`순위 행 ${table.length}개 (season ${season})`);
-    if(!table.length) throw new Error(`${season} 시즌 순위 데이터가 비어 있음`);
-
-    const thirds=extractThirds(table, dbg);
-    if(!thirds.length) throw new Error('조 정보를 해석하지 못함');
-    applyLive(thirds);
-    dbgEl.textContent=dbg.join('\n');
-    const warn = thirds.length<12 ? ` ⚠️ ${thirds.length}/12개 조만 집계됨(조별리그 진행 중)` : '';
-    setLive('live', `실시간 반영됨 · ${thirds.length}개 조 3위 · ${nowStr()}${warn}`);
-  }catch(e){
-    dbg.push('ERROR: '+(e&&e.message?e.message:e));
-    dbgEl.textContent=dbg.join('\n');
-    rows=clone(DEFAULTS);
-    render();
-    setLive('snap', `실시간 실패 → 내장 스냅샷 사용 (${e&&e.message?e.message:e})`);
+  const chain = src==='wikipedia' ? [['위키피디아',fetchWiki]]
+              : src==='sportsdb'  ? [['TheSportsDB',fetchSportsDB]]
+              : [['위키피디아',fetchWiki],['TheSportsDB',fetchSportsDB]];
+  for(const [label,fn] of chain){
+    try{
+      dbg.push(`── ${label} 시도 ──`);
+      const thirds=await fn(dbg);
+      if(thirds && thirds.length){
+        applyLive(thirds);
+        dbgEl.textContent=dbg.join('\n');
+        const warn=thirds.length<12?` ⚠️ ${thirds.length}/12개 조만 집계(진행 중)`:'';
+        setLive('live', `실시간 반영됨 · ${label} · ${thirds.length}개 조 3위 · ${nowStr()}${warn}`);
+        return;
+      }
+      dbg.push(`${label}: 결과 없음`);
+    }catch(e){ dbg.push(`${label} 실패: ${e&&e.message?e.message:e}`); }
   }
+  dbgEl.textContent=dbg.join('\n')+'\n→ 모든 소스 실패 → 내장 스냅샷 사용';
+  rows=clone(DEFAULTS); render();
+  setLive('snap','실시간 실패 → 내장 스냅샷 사용 (디버그 패널 참고)');
 }
 
 document.getElementById('refreshBtn').onclick=fetchLive;
+document.getElementById('cfgSource').onchange=fetchLive;
 document.getElementById('applyCfgBtn').onclick=fetchLive;
 
 render();        // 먼저 스냅샷으로 즉시 렌더
