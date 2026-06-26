@@ -43,6 +43,19 @@
 - **htmlpreview**: `https://htmlpreview.github.io/?https://raw.githubusercontent.com/seogisu/taskplan/claude/korea-world-cup-scenarios-1yzt3n/worldcup.html`
 - 진행 중인 조 결과가 확정되면 표의 숫자를 고쳐 가며 한국의 운명을 실시간으로 확인하세요.
 
+## GitHub Pages 배포 (월드컵 페이지만 공개)
+
+저장소 전체가 아니라 **`docs/` 폴더(월드컵 페이지만)**를 공개하도록 구성했습니다.
+다른 파일(SOXL 등)은 사이트에 노출되지 않습니다. **한 번만** 아래 설정을 켜면 됩니다.
+
+1. GitHub 저장소 → **Settings → Pages**
+2. **Build and deployment → Source: "Deploy from a branch"**
+3. **Branch**: `claude/korea-world-cup-scenarios-1yzt3n`, 폴더: **`/docs`** → **Save**
+4. 1~2분 후 발행됩니다. 주소: **`https://seogisu.github.io/taskplan/`**
+
+> Pages 활성화는 저장소 관리자 권한이 필요해 자동화가 불가합니다(워크플로 토큰으로는
+> `Create Pages site` 권한이 없어 실패). 위 토글만 한 번 켜 주시면 됩니다.
+
 ## 데이터·한계
 
 - **실시간 우선, 스냅샷 폴백.** 정상적으로는 브라우저가 TheSportsDB에서 라이브 순위를

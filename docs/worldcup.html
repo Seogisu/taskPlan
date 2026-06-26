@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대한민국 32강 진출 경우의 수 체커 · 2026 월드컵</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2a2f3a;
+    --txt:#e6e9ef; --muted:#9aa3b2; --accent:#3da9fc; --kr:#c8102e;
+    --in:#1f9d55; --out:#e0245e; --bubble:#d9a40a;
+    --inbg:#11321f; --outbg:#33121e; --bubblebg:#33290a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    line-height:1.6;font-size:15px}
+  .wrap{max-width:960px;margin:0 auto;padding:24px 18px 80px}
+  h1{font-size:23px;margin:.2em 0 .1em;letter-spacing:-.02em}
+  h2{font-size:18px;margin:1.6em 0 .6em;border-left:4px solid var(--accent);padding-left:10px}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .verdict{border-radius:14px;padding:18px 20px;margin:18px 0;border:1px solid var(--line)}
+  .verdict.in{background:var(--inbg);border-color:#1f9d5566}
+  .verdict.out{background:var(--outbg);border-color:#e0245e66}
+  .verdict.bubble{background:var(--bubblebg);border-color:#d9a40a66}
+  .verdict .big{font-size:21px;font-weight:800;letter-spacing:-.02em}
+  .verdict .tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:middle;margin-left:8px}
+  .tag.in{background:var(--in);color:#fff}
+  .tag.out{background:var(--out);color:#fff}
+  .tag.bubble{background:var(--bubble);color:#1a1500}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px 8px;text-align:center;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:none}
+  td.team,th.team{text-align:left}
+  tbody tr.korea{background:#c8102e22}
+  tbody tr.line-cut td{border-bottom:2px dashed #4a5160}
+  .rankbadge{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:7px;font-weight:700;font-size:12.5px}
+  .rk-in{background:var(--in);color:#fff}
+  .rk-out{background:#3a2030;color:#ff86a8}
+  .pos{color:var(--muted);font-size:12px}
+  input[type=number]{width:54px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:7px;padding:5px 6px;text-align:center;font-size:14px;font-variant-numeric:tabular-nums}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:7px;padding:5px 8px;font-size:14px}
+  input:focus{outline:none;border-color:var(--accent)}
+  select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:5px 6px;font-size:12.5px}
+  .status-sel.confirmed{color:#7fd6a3}
+  .status-sel.pending{color:#f2c84b}
+  button{cursor:pointer;font-family:inherit}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:7px 13px;font-size:13px}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:700}
+  .preset{font-size:11px;padding:2px 7px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);margin:0 1px}
+  .preset:hover{border-color:var(--accent);color:var(--txt)}
+  .muted{color:var(--muted)}
+  .small{font-size:12.5px}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0}
+  .kpi .box{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .kpi .box .n{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .kpi .box .l{font-size:11.5px;color:var(--muted)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:5px}
+  details{margin:10px 0}
+  summary{cursor:pointer;color:var(--accent);font-size:14px}
+  a{color:var(--accent)}
+  .note{background:#1a2330;border:1px solid #26415c;border-radius:10px;padding:12px 14px;font-size:13px;color:#bcd2ea;margin:14px 0}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .ga-table td{font-size:13.5px}
+  .adv{color:#7fd6a3;font-weight:600}
+  .elim{color:#ff86a8}
+  .hint{font-size:11.5px;color:var(--muted)}
+  .livebar{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;
+    padding:9px 13px;margin:10px 0;font-size:13.5px;background:var(--panel2)}
+  .livedot{width:10px;height:10px;border-radius:50%;flex:none;background:#888}
+  .livebar.loading{border-color:#3a4660}.livebar.loading .livedot{background:#d9a40a;animation:pulse 1s infinite}
+  .livebar.live{border-color:#1f9d5566;background:#11321f}.livebar.live .livedot{background:#27c46a;box-shadow:0 0 7px #27c46a}
+  .livebar.snap{border-color:#7a5a1a66;background:#2a2410}.livebar.snap .livedot{background:#d9a40a}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .debug{background:#0b0d12;border:1px solid var(--line);border-radius:8px;padding:9px 11px;
+    font-size:11.5px;color:#8fa3bd;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0}
+  #liveSettings label{font-size:12.5px;color:var(--muted)}
+  @media(max-width:640px){
+    th,td{padding:6px 4px;font-size:12.5px}
+    input[type=number]{width:44px;padding:4px}
+    .hide-sm{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🇰🇷 대한민국 32강 진출 경우의 수 체커</h1>
+  <p class="sub">2026 FIFA 월드컵 · 조별리그 종료 후 <b>"각 조 3위 중 상위 8팀"</b> 경쟁 기준 · 기준일 2026-06-26</p>
+
+  <!-- 상황 요약 -->
+  <div class="card">
+    <h2 style="margin-top:0">지금 상황 한눈에</h2>
+    <p style="margin:.3em 0">
+      대한민국은 <b>A조 최종 3위</b>로 조별리그를 마쳤습니다. 1·2위(멕시코·남아공)는 자동 진출했고,
+      한국은 <b>각 조 3위 12팀 중 상위 8팀</b>에 들어야 32강에 갑니다. <b>한국의 경기는 모두 끝났고</b>,
+      이제 진출 여부는 <u>다른 조 3위 팀들의 최종 성적</u>에 달려 있습니다.
+    </p>
+    <table class="ga-table">
+      <thead><tr><th class="team">A조 최종 순위</th><th>승점</th><th>득실</th><th>득점</th><th class="hide-sm">결과</th></tr></thead>
+      <tbody>
+        <tr><td class="team">1. 멕시코</td><td>9</td><td>+6</td><td>6</td><td class="hide-sm adv">32강 진출</td></tr>
+        <tr><td class="team">2. 남아프리카공화국</td><td>4</td><td>−1</td><td>2</td><td class="hide-sm adv">32강 진출</td></tr>
+        <tr class="korea"><td class="team">3. 🇰🇷 대한민국</td><td>3</td><td>−1</td><td>2</td><td class="hide-sm">3위 → 경우의 수 대기</td></tr>
+        <tr><td class="team">4. 체코</td><td>1</td><td>−4</td><td>2</td><td class="hide-sm elim">탈락</td></tr>
+      </tbody>
+    </table>
+    <p class="hint" style="margin-top:8px">A조 경기: 멕시코 2-0 남아공 · 한국 2-1 체코 · 체코 1-1 남아공 · 멕시코 1-0 한국 · 멕시코 3-0 체코 · 남아공 1-0 한국</p>
+  </div>
+
+  <!-- 판정 배너 -->
+  <div id="verdict" class="verdict"></div>
+  <div class="kpi" id="kpi"></div>
+
+  <!-- 3위 팀 표 -->
+  <h2>각 조 3위 팀 순위표 (직접 수정 가능)</h2>
+  <p class="small muted">진행 중인 조의 결과가 확정되면 아래 표의 <b>승점·득실·득점</b>을 고쳐 보세요. 한국의 순위와 진출 여부가 즉시 다시 계산됩니다.</p>
+
+  <!-- 실시간 데이터 상태 -->
+  <div id="liveBar" class="livebar loading">
+    <span id="liveDot" class="livedot"></span>
+    <span id="liveText">실시간 데이터 불러오는 중…</span>
+    <button class="btn" id="refreshBtn" style="margin-left:auto;padding:5px 11px">↻ 새로고침</button>
+  </div>
+  <details id="liveSettings">
+    <summary>실시간 데이터 출처 설정 / 디버그</summary>
+    <div class="card small" style="margin-top:8px">
+      <p class="muted" style="margin:.2em 0">
+        페이지가 열리면 브라우저가 직접 <b>위키피디아 API</b>(<code>origin=*</code>로 CORS 공식 허용)에서
+        <b>2026 월드컵 3위 팀 순위표</b>를 받아 반영합니다. 실패하면 TheSportsDB → 내장 스냅샷 순으로 자동 폴백합니다.
+        <br><b>※ FIFA 홈페이지 HTML 직접 파싱은 불가</b>합니다 — FIFA.com이 CORS 헤더를 주지 않아 브라우저가
+        타 출처에서의 읽기를 차단합니다(보안 정책). 그래서 CORS를 허용하는 위키피디아를 1순위로 씁니다.
+      </p>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;max-width:520px">
+        <label>데이터 소스</label>
+        <select id="cfgSource">
+          <option value="auto" selected>자동 (위키피디아 → TheSportsDB)</option>
+          <option value="wikipedia">위키피디아만</option>
+          <option value="sportsdb">TheSportsDB만</option>
+        </select>
+        <label>API Key <span class="hint">(SportsDB)</span></label><input type="text" id="cfgKey" value="3">
+        <label>League ID <span class="hint">(비우면 이름으로 자동 탐색)</span></label><input type="text" id="cfgLeague" value="">
+        <label>League 이름 검색어</label><input type="text" id="cfgName" value="World Cup">
+        <label>Season</label><input type="text" id="cfgSeason" value="2026">
+      </div>
+      <div class="toolbar" style="margin-bottom:6px">
+        <button class="btn" id="applyCfgBtn">이 설정으로 다시 불러오기</button>
+      </div>
+      <pre id="liveDebug" class="debug">대기 중…</pre>
+    </div>
+  </details>
+
+  <div class="toolbar">
+    <button class="btn" id="worstBtn">⚠️ 최악의 경우 (미확정 조 전부 4점)</button>
+    <button class="btn" id="bestBtn">✅ 최선의 경우 (미확정 조 전부 한국 아래)</button>
+    <button class="btn primary" id="resetBtn">↺ 스냅샷(내장 기본값)으로 리셋</button>
+  </div>
+  <div class="card" style="padding:6px 10px;overflow-x:auto">
+    <table id="thirdsTable">
+      <thead>
+        <tr>
+          <th>순위</th><th class="team">3위 팀 (조)</th>
+          <th>승점</th><th>득실</th><th>득점</th>
+          <th class="hide-sm">상태</th><th class="hide-sm">시나리오</th>
+        </tr>
+      </thead>
+      <tbody id="thirdsBody"></tbody>
+    </table>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--in)"></span>상위 8위 = 32강 진출</span>
+    <span><span class="dot" style="background:#3a2030"></span>9~12위 = 탈락권</span>
+    <span><span class="dot" style="background:var(--kr)"></span>대한민국</span>
+    <span class="hide-sm">점선 = 8위/9위 컷</span>
+  </div>
+
+  <!-- 경우의 수 설명 -->
+  <h2>경우의 수 — 한국이 탈락하는 조건</h2>
+  <div class="card" id="scenarioBox"></div>
+
+  <!-- 규칙 -->
+  <h2>3위 팀 순위 결정 규칙 (FIFA)</h2>
+  <div class="card small">
+    <ol style="margin:.2em 0 .2em 1.1em;padding:0">
+      <li>승점 (승 3 · 무 1 · 패 0)</li>
+      <li>골 득실차 (GD)</li>
+      <li>다득점 (GF)</li>
+      <li>페어플레이 점수 (경고·퇴장 적을수록 유리)</li>
+      <li>FIFA 랭킹</li>
+    </ol>
+    <p class="muted" style="margin:.4em 0 0">이 도구는 1~3번(승점→득실→득점)까지 자동 계산합니다. 한국과 승점·득실·득점이
+      <b>완전히 동률</b>인 팀이 8·9위 경계에 걸리면 4·5번(페어플레이·FIFA 랭킹)으로 갈리며, 그 경우는 별도 표시됩니다.</p>
+  </div>
+
+  <div class="note">
+    <b>데이터 안내.</b> 표의 초기값은 <b>2026-06-26 조사 시점</b>의 공개 정보 기반 추정치입니다.
+    A조(한국)·확정 표시된 팀 외 일부 조는 경기가 진행 중이라 값이 바뀔 수 있으니,
+    아래 실시간 출처에서 확인 후 직접 수정하세요. 모든 계산은 브라우저 안에서만 돌아가며 외부 통신·의존성이 없습니다.
+  </div>
+
+  <details>
+    <summary>출처 / 참고 링크</summary>
+    <ul class="small">
+      <li><a href="https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_Group_A" target="_blank" rel="noopener">2026 FIFA World Cup Group A — Wikipedia</a></li>
+      <li><a href="https://en.wikipedia.org/wiki/Template:2026_FIFA_World_Cup_third-place_table" target="_blank" rel="noopener">3위 팀 순위표 (Template) — Wikipedia</a></li>
+      <li><a href="https://www.skysports.com/football/news/11095/13556635/world-cup-2026-third-place-standings-live-table-as-top-eight-sides-qualify-for-knockout-stage" target="_blank" rel="noopener">3위 팀 실시간 순위 — Sky Sports</a></li>
+      <li><a href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/standings" target="_blank" rel="noopener">공식 순위 — FIFA.com</a></li>
+    </ul>
+    <p class="hint">참고: 무난히 진행되면 한국의 32강 상대는 또 다른 개최국 캐나다가 유력합니다.</p>
+  </details>
+</div>
+
+<script>
+//==== 한국 기준 기록 (A조 3위, 확정) ====
+const KOREA = { group:'A', team:'대한민국', p:3, gd:-1, gf:2, korea:true, confirmed:true, locked:true };
+
+//==== 12개 조 3위 팀 초기값 (2026-06-26 조사 시점 추정) ====
+// confirmed:true = 경기 종료/진출 확정.  pending = 진행 중이라 변동 가능(사용자 수정 권장).
+const DEFAULTS = [
+  // ── 승점 4점: 한국(3점)보다 확실히 위 (모두 진출 확정) ──
+  { group:'E', team:'에콰도르',            p:4, gd:1,  gf:4, confirmed:true  },
+  { group:'F', team:'스웨덴',              p:4, gd:0,  gf:3, confirmed:true  },
+  { group:'B', team:'보스니아',            p:4, gd:-1, gf:4, confirmed:true  },
+  { group:'D', team:'파라과이',            p:4, gd:0,  gf:2, confirmed:true  },
+  // ── 한국 (A조 3위, 확정·잠금) ──
+  { group:'A', team:'🇰🇷 대한민국',        p:3, gd:-1, gf:2, korea:true,  confirmed:true,  locked:true },
+  // ── 승점 3점 이하: 현재 한국과 동률·이하 (진행 중인 조는 미확정) ──
+  { group:'H', team:'알제리',              p:3, gd:-1, gf:1, confirmed:false },
+  { group:'I', team:'카보베르데',          p:3, gd:-1, gf:1, confirmed:false },
+  { group:'C', team:'스코틀랜드',          p:3, gd:-2, gf:2, confirmed:false },
+  { group:'G', team:'크로아티아',          p:3, gd:-2, gf:2, confirmed:false },
+  { group:'J', team:'벨기에',              p:3, gd:-3, gf:1, confirmed:false },
+  { group:'K', team:'DR콩고',              p:2, gd:-2, gf:2, confirmed:false },
+  { group:'L', team:'쿠라사오',            p:2, gd:-3, gf:1, confirmed:false },
+];
+
+const QUALIFY_SPOTS = 8;       // 3위 팀 중 진출 인원
+let rows = clone(DEFAULTS);
+
+function clone(a){ return a.map(o=>Object.assign({},o)); }
+
+//==== FIFA 타이브레이커 비교 (승점 → 득실 → 득점) ====
+function cmp(a,b){
+  if(b.p!==a.p) return b.p-a.p;
+  if(b.gd!==a.gd) return b.gd-a.gd;
+  if(b.gf!==a.gf) return b.gf-a.gf;
+  return 0; // 완전 동률 → 페어플레이/FIFA랭킹 (별도 처리)
+}
+// 완전 동률 여부
+function dead(a,b){ return a.p===b.p && a.gd===b.gd && a.gf===b.gf; }
+
+function compute(){
+  // 안정 정렬: 동률이면 한국을 살짝 뒤(보수적)로 두어 "최소 보장 순위"를 보여준다
+  const idx = rows.map((r,i)=>({r,i}));
+  idx.sort((x,y)=>{
+    const c = cmp(x.r,y.r);
+    if(c) return c;
+    if(dead(x.r,y.r)){
+      // 동률: 한국을 뒤로 (불리하게) → 보수적 판정
+      if(x.r.korea && !y.r.korea) return 1;
+      if(y.r.korea && !x.r.korea) return -1;
+    }
+    return x.i-y.i;
+  });
+  const sorted = idx.map(o=>o.r);
+  const kRow = sorted.find(r=>r.korea) || null;
+  const kRank = sorted.findIndex(r=>r.korea)+1;   // 0 = 한국이 3위 목록에 없음
+  // 한국과 완전 동률이면서 경계에 걸린 팀 존재?
+  const tieRisk = kRow ? sorted.some(r=> !r.korea && dead(r,kRow)) : false;
+  return { sorted, kRank, kRow, tieRisk };
+}
+
+//==== 렌더 ====
+function render(){
+  const {sorted, kRank, kRow, tieRisk} = compute();
+  const body = document.getElementById('thirdsBody');
+  body.innerHTML='';
+  sorted.forEach((r,i)=>{
+    const rank=i+1, isIn=rank<=QUALIFY_SPOTS;
+    const tr=document.createElement('tr');
+    if(r.korea) tr.className='korea';
+    if(rank===QUALIFY_SPOTS) tr.className+=' line-cut';
+    const origIdx = rows.indexOf(r);
+    const numAttrs = r.locked ? 'disabled' : '';
+    tr.innerHTML = `
+      <td><span class="rankbadge ${isIn?'rk-in':'rk-out'}">${rank}</span></td>
+      <td class="team">${r.team} <span class="pos">${r.group}조</span></td>
+      <td><input type="number" data-i="${origIdx}" data-f="p"  value="${r.p}"  ${numAttrs}></td>
+      <td><input type="number" data-i="${origIdx}" data-f="gd" value="${r.gd}" ${numAttrs}></td>
+      <td><input type="number" data-i="${origIdx}" data-f="gf" value="${r.gf}" ${numAttrs}></td>
+      <td class="hide-sm">${r.korea
+          ? '<span class="status-sel confirmed">확정 🔒</span>'
+          : `<select class="status-sel ${r.confirmed?'confirmed':'pending'}" data-i="${origIdx}" data-f="confirmed">
+               <option value="1" ${r.confirmed?'selected':''}>확정</option>
+               <option value="0" ${!r.confirmed?'selected':''}>미확정</option>
+             </select>`}</td>
+      <td class="hide-sm">${r.locked ? '<span class="hint">—</span>' :
+          `<button class="preset" data-i="${origIdx}" data-set="4">4점</button>
+           <button class="preset" data-i="${origIdx}" data-set="3">3점</button>
+           <button class="preset" data-i="${origIdx}" data-set="below">한국↓</button>`}</td>`;
+    body.appendChild(tr);
+  });
+  bindInputs();
+  renderVerdict(sorted, kRank, kRow, tieRisk);
+}
+
+function renderVerdict(sorted, kRank, kRow, tieRisk){
+  const v=document.getElementById('verdict');
+  const k=document.getElementById('kpi');
+  const s=document.getElementById('scenarioBox');
+  if(kRank===0 || !kRow){
+    v.className='verdict bubble';
+    v.innerHTML = `<div class="big">🇰🇷 대한민국이 3위 목록에 없습니다 <span class="tag bubble">확인 필요</span></div>
+      <div style="margin-top:6px" class="small">실시간 데이터에서 한국이 어느 조에서도 3위가 아닙니다.
+        (A조 1·2위로 자동 진출했거나 4위로 떨어졌을 수 있습니다.) 표를 확인하세요.</div>`;
+    k.innerHTML=''; s.innerHTML='';
+    return;
+  }
+  const isIn = kRank<=QUALIFY_SPOTS;
+  const above = kRank-1;                 // 한국보다 위인 3위 팀 수
+  let cls, tag, head;
+  if(isIn && tieRisk){ cls='bubble'; tag='bubble'; head='진출 유력 (동률 변수 있음)'; }
+  else if(isIn){ cls='in'; tag='in'; head='32강 진출권'; }
+  else { cls='out'; tag='out'; head='탈락권'; }
+  v.className='verdict '+cls;
+  v.innerHTML = `<div class="big">🇰🇷 대한민국 현재 <u>3위 팀 중 ${kRank}위</u>
+      <span class="tag ${tag}">${head}</span></div>
+    <div style="margin-top:6px" class="small">
+      ${isIn
+        ? `상위 8위 안에 들어 <b>현재 기준 32강 진출</b>입니다. 한국보다 성적이 좋은 3위 팀은 <b>${above}팀</b>.
+           ${tieRisk?'다만 한국과 <b>승점·득실·득점이 완전 동률</b>인 팀이 있어, 8/9위 경계에 걸리면 페어플레이·FIFA랭킹으로 갈립니다.':''}`
+        : `현재 한국보다 성적이 좋은 3위 팀이 <b>${above}팀</b>이라 <b>9위 이하 → 탈락권</b>입니다.
+           미확정 조 결과가 한국에 유리하게 나오면 8위 안으로 올라올 수 있으니 아래 표를 조정해 확인하세요.`}
+    </div>`;
+
+  // KPI
+  const pending = rows.filter(r=>!r.korea && !r.confirmed).length;
+  const confirmedAbove = sorted.filter((r,i)=> i<kRank-1 && r.confirmed).length;
+  k.innerHTML = `
+    <div class="box"><div class="n">${kRank}위</div><div class="l">3위 팀 12팀 중 한국 순위</div></div>
+    <div class="box"><div class="n">${above}팀</div><div class="l">한국보다 위인 3위 팀</div></div>
+    <div class="box"><div class="n">${confirmedAbove}팀</div><div class="l">그중 이미 확정된 팀</div></div>
+    <div class="box"><div class="n">${pending}팀</div><div class="l">아직 미확정(변동 가능)</div></div>`;
+
+  // 경우의 수 설명
+  const need = QUALIFY_SPOTS;            // 8위까지 진출
+  const slack = need - 1 - above;        // 추가로 몇 팀이 더 추월해야 탈락하는가
+  const gdTxt = (kRow.gd>0?'+':'')+kRow.gd;
+  s.innerHTML = `
+    <p style="margin:.2em 0"><b>핵심 규칙:</b> 각 조 3위 12팀을 한 줄로 세워 <b>상위 8팀</b>만 32강에 갑니다.
+       즉 <b>한국을 앞서는 3위 팀이 8팀 이상이면 한국은 탈락</b>, 7팀 이하이면 진출입니다.</p>
+    <p style="margin:.2em 0">현재 한국(승점 ${kRow.p} · 득실 ${gdTxt} · 득점 ${kRow.gf})을 앞서는 팀은 <b>${above}팀</b>입니다.
+       ${ isIn
+          ? `한국이 탈락하려면 지금 한국보다 아래·동률인 미확정 팀 중 <b>${slack+1}팀</b>이 추가로 한국을 앞서야 합니다.`
+          : `8위 안에 들려면 한국보다 위인 팀이 <b>${above-(need-1)}팀</b> 줄어야 합니다(미확정 조 결과에 달림).` }</p>
+    <ul class="small" style="margin:.4em 0 .2em 1.1em">
+      <li><b>승점 4점</b>인 3위 팀은 한국(3점)을 무조건 앞섭니다.</li>
+      <li><b>승점 3점·득실 −1</b>은 한국과 동률 → 다득점(한국 2골) → 페어플레이/FIFA랭킹으로 갈립니다.</li>
+      <li>일반적으로 <b>4점이면 99% 진출, 3점이면 약 67% 진출</b>(과거 통계 기준)입니다.</li>
+    </ul>
+    <p class="hint" style="margin:.4em 0 0">위 "최악/최선의 경우" 버튼으로 미확정 조를 한 번에 바꿔 양 극단을 확인할 수 있습니다.</p>`;
+}
+
+//==== 입력 바인딩 ====
+function bindInputs(){
+  document.querySelectorAll('#thirdsBody input[type=number]').forEach(inp=>{
+    inp.addEventListener('change',e=>{
+      const i=+e.target.dataset.i, f=e.target.dataset.f;
+      rows[i][f]=parseInt(e.target.value||'0',10);
+      render();
+    });
+  });
+  document.querySelectorAll('#thirdsBody select').forEach(sel=>{
+    sel.addEventListener('change',e=>{
+      const i=+e.target.dataset.i;
+      rows[i].confirmed = e.target.value==='1';
+      render();
+    });
+  });
+  document.querySelectorAll('#thirdsBody .preset').forEach(b=>{
+    b.addEventListener('click',e=>{
+      const i=+e.target.dataset.i, set=e.target.dataset.set;
+      if(set==='4'){ rows[i].p=4; }
+      else if(set==='3'){ rows[i].p=3; }
+      else if(set==='below'){ rows[i].p=3; rows[i].gd=-1; rows[i].gf=1; } // 한국보다 다득점 낮게 → 한국 우위
+      render();
+    });
+  });
+}
+
+//==== 버튼 ====
+document.getElementById('resetBtn').onclick=()=>{ rows=clone(DEFAULTS); setLive('snap','내장 스냅샷 사용 중 (수동 리셋)'); render(); };
+document.getElementById('worstBtn').onclick=()=>{
+  rows.forEach(r=>{ if(!r.korea && !r.confirmed){ r.p=4; if(r.gd<0) r.gd=0; } });
+  render();
+};
+document.getElementById('bestBtn').onclick=()=>{
+  rows.forEach(r=>{ if(!r.korea && !r.confirmed){ r.p=3; r.gd=-1; r.gf=1; } }); // 한국과 동률이지만 다득점 열세 → 한국 우위
+  render();
+};
+
+//================= 실시간 데이터 (브라우저에서 직접 호출) =================
+// 1순위: 위키피디아 API(origin=* → CORS 허용) / 2순위: TheSportsDB / 최종: 내장 스냅샷
+function setLive(state, text){
+  const bar=document.getElementById('liveBar');
+  bar.className='livebar '+state;
+  document.getElementById('liveText').textContent=text;
+}
+function nowStr(){ try{ return new Date().toLocaleString('ko-KR'); }catch(e){ return ''; } }
+function num(x){ const n=parseInt(x,10); return isNaN(n)?0:n; }
+function val(id){ const e=document.getElementById(id); return e?e.value:''; }
+// "+1","−2","[a] 3" 등 → 정수
+function signed(s){ const t=String(s==null?'':s).replace(/[−–—]/g,'-').replace(/\+/g,'').replace(/[^0-9-]/g,''); const n=parseInt(t,10); return isNaN(n)?0:n; }
+function cleanTxt(s){ return String(s||'').replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim(); }
+
+// 순위표(table) 배열 → 각 조 3위 팀 목록
+function extractThirds(table, dbg){
+  const norm = table.map(t=>({
+    team: t.strTeam||t.strTeamName||'?',
+    p: num(t.intPoints),
+    gf: num(t.intGoalsFor),
+    ga: num(t.intGoalsAgainst),
+    gd: (t.intGoalDifference!=null && t.intGoalDifference!=='') ? num(t.intGoalDifference) : num(t.intGoalsFor)-num(t.intGoalsAgainst),
+    played: num(t.intPlayed),
+    rank: num(t.intRank),
+    grp: (t.strGroup||t.intGroup||t.strGroupName||'').toString()
+  }));
+  const groups={};
+  const hasGroup = norm.some(r=>r.grp.trim());
+  if(hasGroup){
+    dbg.push('group field: yes');
+    norm.forEach(r=>{
+      const m=r.grp.match(/([A-L])\s*$/i);          // "Group A" → A
+      const g=(m?m[1].toUpperCase():r.grp.trim());
+      (groups[g]=groups[g]||[]).push(r);
+    });
+  } else {
+    dbg.push('group field: none → rank-reset로 조 추정');
+    const letters='ABCDEFGHIJKL'; let gi=-1;
+    norm.forEach((r,i)=>{ if(r.rank===1 || i===0) gi++; const g=letters[gi]||('?'+gi); (groups[g]=groups[g]||[]).push(r); });
+  }
+  const thirds=[];
+  Object.keys(groups).sort().forEach(g=>{
+    const arr=groups[g].slice().sort((a,b)=> b.p-a.p || b.gd-a.gd || b.gf-a.gf || a.rank-b.rank);
+    const third = arr.find(r=>r.rank===3) || arr[2];
+    if(third) thirds.push({
+      group:g, team:third.team, p:third.p, gd:third.gd, gf:third.gf,
+      confirmed: third.played>=3, locked:false,
+      korea: /korea/i.test(third.team) || /대한민국/.test(third.team)
+    });
+  });
+  dbg.push(`thirds: ${thirds.length} (${thirds.map(t=>t.group).join(',')})`);
+  return thirds;
+}
+
+function applyLive(thirds){
+  if(!thirds.some(t=>t.korea)){ const a=thirds.find(t=>t.group==='A'); if(a) a.korea=true; }
+  rows = thirds;
+  render();
+}
+
+// ── 소스 1: 위키피디아 "3위 팀 순위표" 템플릿 (CORS: origin=*) ──
+function colMap(ths){
+  const m={};
+  ths.forEach((h,i)=>{
+    const t=h.replace(/\s/g,'').toLowerCase();
+    if((/grp|group/.test(t)) && m.grp==null) m.grp=i;
+    else if((/team|nation|country/.test(t)) && m.team==null) m.team=i;
+    else if((t==='pld'||t==='p'||/played|matches/.test(t)) && m.pld==null) m.pld=i;
+    else if(t==='gf' && m.gf==null) m.gf=i;
+    else if(t==='gd' && m.gd==null) m.gd=i;
+    else if((t==='pts'||/points/.test(t)) && m.pts==null) m.pts=i;
+  });
+  return m;
+}
+async function fetchWiki(dbg){
+  const page='Template:2026 FIFA World Cup third-place table';
+  const url=`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(page)}`
+          +`&prop=text&format=json&formatversion=2&origin=*`;
+  const r=await fetch(url);
+  if(!r.ok) throw new Error('Wikipedia HTTP '+r.status);
+  const j=await r.json();
+  const html=(j.parse && (typeof j.parse.text==='string' ? j.parse.text
+              : (j.parse.text && j.parse.text['*']))) || '';
+  if(!html) throw new Error('표 응답 없음');
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const tables=[...doc.querySelectorAll('table')];
+  dbg.push(`위키 표 ${tables.length}개`);
+  for(const t of tables){
+    const trs=[...t.querySelectorAll('tr')];
+    let hi=-1, map=null;
+    for(let i=0;i<trs.length;i++){
+      const ths=[...trs[i].querySelectorAll('th')].map(e=>cleanTxt(e.textContent));
+      if(!ths.length) continue;
+      const m=colMap(ths);
+      if(m.pts!=null && (m.grp!=null || m.team!=null)){ hi=i; map=m; break; }
+    }
+    if(hi<0) continue;
+    const thirds=[];
+    for(let i=hi+1;i<trs.length;i++){
+      const tds=[...trs[i].querySelectorAll('td,th')];
+      if(tds.length<3) continue;
+      const cell=k=> (map[k]!=null && tds[map[k]]) ? cleanTxt(tds[map[k]].textContent) : '';
+      const team=cell('team'), grpRaw=cell('grp');
+      if(!team && !grpRaw) continue;
+      const grp=((grpRaw.match(/[A-L]/i)||[''])[0]||'').toUpperCase();
+      const pld=map.pld!=null?signed(cell('pld')):3;
+      thirds.push({ group:grp, team:team||grp, p:signed(cell('pts')),
+        gd: map.gd!=null?signed(cell('gd')):0, gf: map.gf!=null?signed(cell('gf')):0,
+        confirmed: pld>=3, locked:false,
+        korea:/korea/i.test(team)||/대한민국/.test(team) });
+    }
+    if(thirds.length){ dbg.push(`위키 3위표 ${thirds.length}행 파싱`); return thirds; }
+  }
+  throw new Error('3위 순위표를 찾지 못함');
+}
+
+// ── 소스 2: TheSportsDB ──
+async function fetchSportsDB(dbg){
+  const key=(val('cfgKey')||'3').trim();
+  let league=(val('cfgLeague')||'').trim();
+  const name=(val('cfgName')||'World Cup').trim();
+  const season=(val('cfgSeason')||'2026').trim();
+  const base=`https://www.thesportsdb.com/api/v1/json/${encodeURIComponent(key)}`;
+  if(!league){
+    const r=await fetch(`${base}/search_all_leagues.php?c=World&s=Soccer`);
+    if(!r.ok) throw new Error('리그목록 HTTP '+r.status);
+    const j=await r.json(); const list=j.countries||j.leagues||[];
+    dbg.push(`SportsDB 리그 ${list.length}개`);
+    const re=new RegExp(name,'i');
+    const cand=list.filter(l=>re.test(l.strLeague||'')&&!/women|u-?\d|futsal|beach|club|qual/i.test(l.strLeague||''));
+    const pick=cand.find(l=>/^fifa world cup$/i.test((l.strLeague||'').trim()))||cand[0];
+    if(!pick) throw new Error('WC 리그 못 찾음'); league=pick.idLeague;
+    dbg.push(`리그 ${pick.strLeague} (id ${league})`);
+  } else dbg.push(`리그 고정 id ${league}`);
+  const tr=await fetch(`${base}/lookuptable.php?l=${encodeURIComponent(league)}&s=${encodeURIComponent(season)}`);
+  if(!tr.ok) throw new Error('순위표 HTTP '+tr.status);
+  const tj=await tr.json(); const table=tj.table||tj.standings||[];
+  dbg.push(`SportsDB 행 ${table.length}개`);
+  if(!table.length) throw new Error('순위 데이터 비어 있음');
+  return extractThirds(table, dbg);
+}
+
+// ── 오케스트레이터: 소스 순차 시도 ──
+async function fetchLive(){
+  const src=val('cfgSource')||'auto';
+  const dbg=[]; const dbgEl=document.getElementById('liveDebug');
+  setLive('loading','실시간 데이터 불러오는 중…');
+  const chain = src==='wikipedia' ? [['위키피디아',fetchWiki]]
+              : src==='sportsdb'  ? [['TheSportsDB',fetchSportsDB]]
+              : [['위키피디아',fetchWiki],['TheSportsDB',fetchSportsDB]];
+  for(const [label,fn] of chain){
+    try{
+      dbg.push(`── ${label} 시도 ──`);
+      const thirds=await fn(dbg);
+      if(thirds && thirds.length){
+        applyLive(thirds);
+        dbgEl.textContent=dbg.join('\n');
+        const warn=thirds.length<12?` ⚠️ ${thirds.length}/12개 조만 집계(진행 중)`:'';
+        setLive('live', `실시간 반영됨 · ${label} · ${thirds.length}개 조 3위 · ${nowStr()}${warn}`);
+        return;
+      }
+      dbg.push(`${label}: 결과 없음`);
+    }catch(e){ dbg.push(`${label} 실패: ${e&&e.message?e.message:e}`); }
+  }
+  dbgEl.textContent=dbg.join('\n')+'\n→ 모든 소스 실패 → 내장 스냅샷 사용';
+  rows=clone(DEFAULTS); render();
+  setLive('snap','실시간 실패 → 내장 스냅샷 사용 (디버그 패널 참고)');
+}
+
+document.getElementById('refreshBtn').onclick=fetchLive;
+document.getElementById('cfgSource').onchange=fetchLive;
+document.getElementById('applyCfgBtn').onclick=fetchLive;
+
+render();        // 먼저 스냅샷으로 즉시 렌더
+fetchLive();     // 그다음 실시간 시도 (실패해도 스냅샷 유지)
+</script>
+</body>
+</html>
